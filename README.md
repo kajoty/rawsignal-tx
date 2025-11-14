@@ -1,3 +1,4 @@
+
 # rawsignal-tx: Universal RF Signal Generator (POCSAG & DTMF & ...)
 
 ## 📡 Übersicht
@@ -72,9 +73,9 @@ Generiert ein POCSAG-Signal.
 ./bin/rawsignal_tx POCSAG <BAUD> <ADRESSE>:<FUNKTION>:<NACHRICHT>
 ```
 
-  * `<BAUD>`: 512, 1200, oder 2400.
-  * `<ADRESSE>`: Bis zu 21-Bit-Adresse.
-  * `<FUNKTION>`: 0-3 (z.B. 3 für Alpha-Nachricht). Kann weggelassen werden (Standard ist 3).
+  \* `<BAUD>`: 512, 1200, oder 2400.
+  \* `<ADRESSE>`: Bis zu 21-Bit-Adresse.
+  \* `<FUNKTION>`: 0-3 (z.B. 3 für Alpha-Nachricht). Kann weggelassen werden (Standard ist 3).
 
 #### Beispiel: Generiere POCSAG und dekodiere mit multimon-ng
 
@@ -93,9 +94,9 @@ Generiert eine Sequenz von DTMF-Tönen.
 ./bin/rawsignal_tx DTMF <SEQUENZ> <TON_DAUER_MS> <PAUSE_DAUER_MS>
 ```
 
-  * `<SEQUENZ>`: Die zu sendende Zeichenkette (z.B. `123456*#A`).
-  * `<TON_DAUER_MS>`: Dauer jedes Tons in Millisekunden (Standard: 50).
-  * `<PAUSE_DAUER_MS>`: Dauer der Stille zwischen den Tönen in Millisekunden (Standard: 50).
+  \* `<SEQUENZ>`: Die zu sendende Zeichenkette (z.B. `123456*#A`).
+  \* `<TON_DAUER_MS>`: Dauer jedes Tons in Millisekunden (Standard: 50).
+  \* `<PAUSE_DAUER_MS>`: Dauer der Stille zwischen den Tönen in Millisekunden (Standard: 50).
 
 #### Beispiel: Generiere DTMF und dekodiere mit multimon-ng
 
@@ -119,3 +120,12 @@ Der Code wurde erfolgreich implementiert und die DTMF-Funktionalität mit `multi
 ### Nächste geplante Schritte
 
 Implementierung weiterer Protokolle (z.B. FLEX).
+
+-----
+
+## 🙏 Danksagungen und Credits
+
+Der POCSAG-Encoder basiert maßgeblich auf der ursprünglichen Implementierung von **[`faithanalog/pocsag-encoder`](https://github.com/faithanalog/pocsag-encoder)**, die eine wichtige Grundlage für die Protokollkodierung dieses Projekts bildete.
+
+```
+```
