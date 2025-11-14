@@ -2,9 +2,7 @@
 
 ## 📡 Übersicht
 
-`rawsignal-tx` ist ein vielseitiges Kommandozeilen-Tool, das zur Generierung von rohen, digitalen Audiosignalen für verschiedene Funkprotokolle entwickelt wurde. Die Ausgabe erfolgt als **Signed 16-bit Little-Endian (S16_LE) PCM Audio** mit einer Abtastrate von **22050 Hz** und wird direkt an `stdout` ausgegeben.
-
-Dieses rohe Audiosignal kann direkt in SDR-Tools (wie `hackrf_transfer`) eingespeist oder zur direkten akustischen Ausgabe (z.B. mit `aplay`) verwendet werden.
+`rawsignal-tx` ist ein Kommandozeilen-Tool, das zur Generierung von rohen, digitalen Audiosignalen für verschiedene Funkprotokolle entwickelt wurde. Die Ausgabe erfolgt als **Signed 16-bit Little-Endian (S16_LE) PCM Audio** mit einer Abtastrate von **22050 Hz** und wird direkt an `stdout` ausgegeben.
 
 ---
 
