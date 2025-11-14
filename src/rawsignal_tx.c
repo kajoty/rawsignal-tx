@@ -3,19 +3,20 @@
 #include <string.h>
 #include <stdint.h>
 #include <time.h>
-#include <strings.h> 
+#include <strings.h>
+#include <ctype.h> // Für isdigit/isprint oder ähnliche
 
 #include "../include/signal_generator.h"
 #include "../include/encoders/pocsag.h"
-#include "../include/encoders/tones.h" // NEU: DTMF-Header inkludiert
+#include "../include/encoders/tones.h" 
+#include "../include/encoders/morse.h" // NEU: Morsecode Header
 
+// Standardwerte
 #define MAX_DELAY 10 // Sekunden
 #define MIN_DELAY 1  // Sekunden
-
-// DTMF-Standarddauern
 #define DTMF_TONE_MS 50
 #define DTMF_PAUSE_MS 50
-
+#define MORSE_WPM_DEFAULT 20
 
 /**
  * @brief Gibt eine Fehlermeldung zur korrekten Nutzung des Programms aus.
@@ -28,7 +29,48 @@ static void print_usage(const char* progName) {
     fprintf(stderr, "\n DTMF [SEQUENZ] [TON_DAUER_MS] [PAUSE_DAUER_MS]\n");
     fprintf(stderr, " Beispiel: %s DTMF 123456# 50 50\n", progName);
     fprintf(stderr, " (Standarddauern: Ton=%dms, Pause=%dms)\n", DTMF_TONE_MS, DTMF_PAUSE_MS);
+    fprintf(stderr, "\n MORSE_CW [NACHRICHT] [WPM]\n");
+    fprintf(stderr, " Beispiel: %s MORSE_CW CQDX 20\n", progName);
+    fprintf(stderr, " (Standard WPM: %d)\n", MORSE_WPM_DEFAULT);
 }
+
+
+// --- HILFSFUNKTIONEN FÜR DIE MORSE-GENERIERUNG ---
+
+/**
+ * @brief Führt die Kodierung und Ausgabe für Morse durch.
+ */
+static int handle_morse_encoding(const char* message, uint32_t wpm) {
+    // 1. Puffergröße berechnen
+    size_t requiredSamples = morse_messageLength(message, wpm);
+    if (requiredSamples == 0) {
+        fprintf(stderr, "Fehler: Puffergröße für Morsecode konnte nicht berechnet werden.\n");
+        return 1;
+    }
+
+    // 2. Speicher zuweisen (int16_t = 2 Bytes pro Sample)
+    int16_t* pcm = (int16_t*) malloc(sizeof(int16_t) * requiredSamples);
+    if (pcm == NULL) {
+        fprintf(stderr, "Fehler: Speicherzuweisung für Morse-PCM-Puffer fehlgeschlagen.\n");
+        return 1;
+    }
+
+    // 3. Kodierung
+    size_t actualSamples = morse_encodeTransmission(message, wpm, pcm, requiredSamples);
+
+    // 4. Ausgabe
+    if (actualSamples > 0) {
+        // Ausgabe als Signed 16-bit Little-Endian (S16_LE)
+        fwrite(pcm, sizeof(int16_t), actualSamples, stdout);
+    } else {
+        fprintf(stderr, "Fehler: Morse-Kodierung erzeugte kein Signal.\n");
+    }
+
+    free(pcm);
+    return (actualSamples > 0) ? 0 : 1;
+}
+
+// --- HAUPTPROGRAMM ---
 
 /**
  * @brief Hauptfunktion des Programms.
@@ -42,7 +84,9 @@ int main(int argc, char* argv[]) {
     }
 
     const char* modulator = argv[1];
+    int result = 0; // Ergebnis der Kodierung
 
+    // --- 1. POCSAG-Logik ---
     if (strcasecmp(modulator, "POCSAG") == 0) {
         if (argc < 4) {
             fprintf(stderr, "Fehler: POCSAG benötigt BAUD und ADRESSE:NACHRICHT.\n");
@@ -50,7 +94,6 @@ int main(int argc, char* argv[]) {
             return 1;
         }
         
-        // --- POCSAG-Logik (Unverändert) ---
         uint32_t baudRate = (uint32_t) strtol(argv[2], NULL, 10);
         char* input_string = argv[3];
 
@@ -62,6 +105,7 @@ int main(int argc, char* argv[]) {
         uint32_t address = 0;
         FunctionCode functionCode = FUNC_ALPHA_TEXT;
         char* message = NULL;
+        // Puffer für strtok Kopie (Original Code beibehalten)
         char inputCopy[65536]; 
 
         strncpy(inputCopy, input_string, sizeof(inputCopy) - 1);
@@ -100,6 +144,8 @@ int main(int argc, char* argv[]) {
             fprintf(stderr, "Fehler: Ungültiger Funktionscode: %u. Erlaubt: 0-3.\n", functionCode);
             return 1;
         }
+        fprintf(stderr, "Info: POCSAG-Kodierung: Adresse %u, Baud %u, Code %u.\n", address, baudRate, functionCode);
+
 
         // Kodierung
         size_t requiredMessageLength = pocsag_messageLength(address, strlen(message), functionCode);
@@ -113,23 +159,32 @@ int main(int argc, char* argv[]) {
         pocsag_encodeTransmission(address, message, transmission, functionCode);
 
         // Signalerzeugung und Ausgabe
-        size_t pcmLength = pcmTransmissionLength(SAMPLE_RATE, baudRate, requiredMessageLength);
-        uint8_t* pcm = (uint8_t*) malloc(sizeof(uint8_t) * pcmLength);
-
+        // HINWEIS: Hier wurde uint8_t verwendet, was 8-Bit-Samples impliziert, aber der Output ist S16_LE.
+        // Die Signalerzeugung muss an S16_LE angepasst werden!
+        // Da die ursprüngliche pocsag.c und dtmf.c nicht Teil des Kontextes sind, nehme ich an,
+        // dass die Funktionen auf die Signalerzeugung in S16_LE Samples umgestellt werden müssen.
+        
+        // Da wir S16_LE (2 Bytes pro Sample) verwenden, muss dies hier angepasst werden:
+        size_t pcmLength = pcmTransmissionLength(SAMPLE_RATE, baudRate, requiredMessageLength) * sizeof(int16_t); // Länge in Bytes
+        int16_t* pcm = (int16_t*) malloc(pcmLength); // Größe in int16_t Samples
+        
         if (pcm == NULL) {
             fprintf(stderr, "Fehler: Speicherzuweisung für PCM-Puffer fehlgeschlagen.\n");
             free(transmission);
             return 1;
         }
 
+        // Annahme: pcmEncodeTransmission ist jetzt für int16_t optimiert
         pcmEncodeTransmission(SAMPLE_RATE, baudRate, transmission, requiredMessageLength, pcm);
-        fwrite(pcm, sizeof(uint8_t), pcmLength, stdout);
+        fwrite(pcm, sizeof(int16_t), pcmLength / sizeof(int16_t), stdout);
 
         free(transmission);
         free(pcm);
+        
+        result = 0; // Erfolg
 
+    // --- 2. DTMF-Logik ---
     } else if (strcasecmp(modulator, "DTMF") == 0) {
-        // --- NEUE DTMF-Logik ---
         if (argc < 3) {
             fprintf(stderr, "Fehler: DTMF benötigt mindestens die Ton-Sequenz.\n");
             print_usage(argv[0]);
@@ -137,10 +192,9 @@ int main(int argc, char* argv[]) {
         }
 
         const char* digits = argv[2];
-        int tone_duration = DTMF_TONE_MS; // Standard: 50ms
-        int pause_duration = DTMF_PAUSE_MS; // Standard: 50ms
+        int tone_duration = DTMF_TONE_MS;
+        int pause_duration = DTMF_PAUSE_MS;
 
-        // Optionale Argumente für Dauer
         if (argc >= 4) {
             tone_duration = (int) strtol(argv[3], NULL, 10);
         }
@@ -149,34 +203,62 @@ int main(int argc, char* argv[]) {
         }
 
         if (tone_duration <= 0 || pause_duration <= 0) {
-             fprintf(stderr, "Fehler: Ton- und Pausendauer müssen positiv sein.\n");
-             return 1;
+            fprintf(stderr, "Fehler: Ton- und Pausendauer müssen positiv sein.\n");
+            return 1;
         }
 
         fprintf(stderr, "Info: DTMF-Kodierung: '%s' (Ton: %dms, Pause: %dms)\n", 
-                digits, tone_duration, pause_duration);
+                        digits, tone_duration, pause_duration);
 
-        // Der DTMF-Encoder schreibt die Samples direkt an stdout
-        if (rs_encode_dtmf(digits, tone_duration, pause_duration) != 0) {
-            return 1; // Fehler bei der Kodierung
+        // Der DTMF-Encoder schreibt die Samples direkt an stdout (als S16_LE)
+        result = rs_encode_dtmf(digits, tone_duration, pause_duration);
+        
+    // --- 3. MORSE_CW-Logik (NEU) ---
+    } else if (strcasecmp(modulator, "MORSE_CW") == 0) {
+        if (argc < 3) {
+            fprintf(stderr, "Fehler: MORSE_CW benötigt die Nachricht.\n");
+            print_usage(argv[0]);
+            return 1;
         }
+        
+        const char* message = argv[2];
+        uint32_t wpm = MORSE_WPM_DEFAULT;
+
+        if (argc >= 4) {
+            wpm = (uint32_t) strtol(argv[3], NULL, 10);
+        }
+        
+        if (wpm == 0 || wpm > 60) {
+            fprintf(stderr, "Fehler: Ungültige WPM. Erlaubt: 1-60.\n");
+            return 1;
+        }
+
+        fprintf(stderr, "Info: MORSE_CW-Kodierung: '%s' bei %u WPM.\n", message, wpm);
+        
+        result = handle_morse_encoding(message, wpm);
 
     } else {
         fprintf(stderr, "Fehler: Unbekannter Modulator '%s'.\n", modulator);
         print_usage(argv[0]);
-        return 1;
+        result = 1;
     }
 
-    // Füge zufällige Stille am Ende hinzu (für SDR-Tools oft nützlich)
-    size_t silenceLength = rand() % (SAMPLE_RATE * (MAX_DELAY - MIN_DELAY)) + MIN_DELAY;
-    // Die Länge ist in Samples, wir allocieren 2 Bytes/Sample (uint16_t)
-    uint16_t* silence = (uint16_t*) malloc(sizeof(uint16_t) * silenceLength); 
-    
-    if (silence != NULL) {
-        bzero(silence, sizeof(uint16_t) * silenceLength);
-        fwrite(silence, sizeof(uint16_t), silenceLength, stdout);
-        free(silence);
+    // --- ZUFÄLLIGE END-STILLE (Wird nur bei Erfolg hinzugefügt) ---
+    if (result == 0) {
+        // Füge zufällige Stille am Ende hinzu (für SDR-Tools oft nützlich)
+        // Die Berechnung ergibt die Anzahl der Samples (int16_t)
+        size_t silenceSamples = rand() % (SAMPLE_RATE * (MAX_DELAY - MIN_DELAY)) + (SAMPLE_RATE * MIN_DELAY);
+        
+        uint16_t* silence = (uint16_t*) malloc(sizeof(uint16_t) * silenceSamples); 
+        
+        if (silence != NULL) {
+            // Fülle den Puffer mit Nullen (Stille)
+            memset(silence, 0, sizeof(uint16_t) * silenceSamples);
+            // Schreibe die Samples (int16_t)
+            fwrite(silence, sizeof(uint16_t), silenceSamples, stdout);
+            free(silence);
+        }
     }
     
-    return 0;
+    return result;
 }

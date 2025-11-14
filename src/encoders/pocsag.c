@@ -1,3 +1,12 @@
+/*
+ * POCSAG Encoder - C-Implementierung
+ * * Der Großteil der Logik in dieser Datei (CRC, Parity, Kodierung der Wörter und Batch-Struktur) 
+ * basiert auf dem ursprünglichen pocsag-encoder Projekt.
+ * * Original Copyright (c) [2024] faithanalog
+ * Quelle: https://github.com/faithanalog/pocsag-encoder
+ * * Dieses Modul ist lizenziert unter der MIT-Lizenz.
+ */
+
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>

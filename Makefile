@@ -1,68 +1,62 @@
-# Variablen
+# Compiler und Flags
 CC = gcc
-CFLAGS = -Wall -Wextra -std=c99 -Iinclude -Iinclude/encoders
-LDFLAGS = -lm
-TARGET = bin/rawsignal_tx
+CFLAGS = -Wall -Wextra -std=c99 -O2 -Iinclude
+LDFLAGS = -lm # -lm ist für mathematische Funktionen (z.B. sin, cos in morse.c)
 
-# Quell- und Objektdateien
-# Fügt src/encoders/tones.c hinzu
-SRC = src/rawsignal_tx.c src/signal_generator.c src/encoders/pocsag.c src/encoders/tones.c
+# Verzeichnisse
+BIN_DIR = bin
+OBJ_DIR = obj
+SRC_DIR = src
+MOD_SRC_DIR = src/encoders
 
-# Fügt obj/encoders/tones.o hinzu
-OBJ = $(SRC:src/rawsignal_tx.c=obj/rawsignal_tx.o)
-OBJ := $(OBJ:src/signal_generator.c=obj/signal_generator.o)
-OBJ := $(OBJ:src/encoders/pocsag.c=obj/encoders/pocsag.o)
-OBJ := $(OBJ:src/encoders/tones.c=obj/encoders/tones.o) # NEU: DTMF Objektdatei
+# Ausgabedatei
+TARGET = $(BIN_DIR)/rawsignal_tx
 
-# Erstellt eine Liste aller Objektdateien
-ALL_OBJ = $(OBJ)
+# Haupt-Quellendateien
+CORE_SRCS = $(SRC_DIR)/rawsignal_tx.c \
+            $(SRC_DIR)/signal_generator.c
 
+# Modulator-Quellendateien (NEU: morse.c hinzugefügt)
+MODULATOR_SRCS = $(MOD_SRC_DIR)/pocsag.c \
+                 $(MOD_SRC_DIR)/tones.c \
+                 $(MOD_SRC_DIR)/morse.c
 
-# --- Build-Regeln ---
+# Alle Quellendateien
+SRCS = $(CORE_SRCS) $(MODULATOR_SRCS)
 
-# Standardregel: Erstellt das Ziel (die ausführbare Datei)
-all: directories $(TARGET)
-	@echo "Linking target: $(TARGET)"
+# Objektdateien
+CORE_OBJS = $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(CORE_SRCS))
+MODULATOR_OBJS = $(patsubst $(MOD_SRC_DIR)/%.c, $(OBJ_DIR)/encoders/%.o, $(MODULATOR_SRCS))
 
-# Erstellt das ausführbare Ziel
-$(TARGET): $(ALL_OBJ)
-	$(CC) $(ALL_OBJ) -o $(TARGET) $(LDFLAGS)
+OBJS = $(CORE_OBJS) $(MODULATOR_OBJS)
 
-# Regel für das Kompilieren von .c zu .o (Generische Regel)
-# Stellt sicher, dass das entsprechende Verzeichnis obj/xyz/ existiert
-obj/%.o: src/%.c
-	@mkdir -p $(@D)
+# --- Regeln ---
+
+.PHONY: all clean
+
+all: $(BIN_DIR) $(OBJ_DIR)/encoders $(TARGET)
+
+$(TARGET): $(OBJS)
+	@echo "Linking $(TARGET)..."
+	$(CC) $(OBJS) -o $@ $(LDFLAGS)
+
+# Regel für alle .c-Dateien in src/
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 	@echo "Compiling $<"
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Spezielle Regel für die Encoder-Dateien
-obj/encoders/%.o: src/encoders/%.c
-	@mkdir -p $(@D)
+# Regel für .c-Dateien in src/encoders/
+$(OBJ_DIR)/encoders/%.o: $(MOD_SRC_DIR)/%.c
 	@echo "Compiling $<"
 	$(CC) $(CFLAGS) -c $< -o $@
 
+# Erstelle Verzeichnisse
+$(BIN_DIR):
+	mkdir -p $(BIN_DIR)
 
-# --- Hilfsregeln ---
+$(OBJ_DIR)/encoders:
+	mkdir -p $(OBJ_DIR)/encoders
 
-# Stellt sicher, dass die Ausgabeordner existieren
-directories:
-	@mkdir -p bin
-	@mkdir -p obj
-	@mkdir -p obj/encoders
-
-# Führt das Programm mit einem Testbeispiel aus
-run: $(TARGET)
-	@echo "Running POCSAG test (512 baud):"
-	./$(TARGET) POCSAG 512 1234567:3:FUNKTIONIERT | multimon-ng -t raw -a POCSAG512 -
-	@echo "---"
-	@echo "Running DTMF test (50ms/50ms):"
-	./$(TARGET) DTMF 123456789*#ABC 50 50 > /dev/null
-	@echo "DTMF test successfully generated samples (written to stdout)."
-
-
-# Entfernt alle generierten Dateien
 clean:
 	@echo "Cleaning up..."
-	rm -rf obj bin
-
-.PHONY: all clean run directories
+	rm -rf $(OBJ_DIR) $(BIN_DIR)

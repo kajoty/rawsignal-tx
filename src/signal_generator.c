@@ -5,8 +5,6 @@
 
 #include "../include/signal_generator.h"
 
-// Hinweis: Die Konstanten wie SYMRATE, SAMPLE_RATE und MAX_PCM_VALUE kommen aus signal_generator.h
-
 /**
  * @brief Generiert ein 16-bit PCM Sample bei einer bestimmten Frequenz und Zeit.
  * * @param frequency Die Frequenz des Tons (Hz).
@@ -25,14 +23,14 @@ int16_t rs_generate_tone_sample(double frequency, size_t time_index, uint32_t sa
 
 
 /**
- * @brief Berechnet die Länge der PCM-Übertragung in Bytes.
+ * @brief Berechnet die Länge der PCM-Übertragung in SAMPLES.
  */
 size_t pcmTransmissionLength(
         uint32_t sampleRate,
         uint32_t baudRate,
         size_t transmissionLength) {
-    // 2 Bytes pro Sample (Int16)
-    return transmissionLength * 32 * sampleRate / baudRate * 2;
+    // Länge in SAMPLES: transmissionLength (Wörter) * 32 (Bits/Wort) * sampleRate / baudRate
+    return transmissionLength * 32 * sampleRate / baudRate;
 }
 
 /**
@@ -44,7 +42,7 @@ void pcmEncodeTransmission(
         uint32_t baudRate,
         const uint32_t* transmission,
         size_t transmissionLength,
-        uint8_t* out) {
+        int16_t* out) { // KORREKT: int16_t*
 
     // Die Anzahl der Wiederholungen jedes Bits, die wir benötigen, um SYMRATE (38400 Hz) zu erreichen
     int repeatsPerBit = SYMRATE / baudRate;
@@ -88,24 +86,19 @@ void pcmEncodeTransmission(
     }
 
     // Resampling auf die Ziel-Abtastrate (22050 Hz) mit Nearest Neighbor
-    size_t outputSize =
+    size_t outputSamples =
         pcmTransmissionLength(sampleRate, baudRate, transmissionLength);
 
-    for (size_t i = 0; i < outputSize; i += 2) {
+    for (size_t i = 0; i < outputSamples; i++) {
         
         // Mapping vom Ziel-Sample-Index auf den Quell-Sample-Index
-        size_t input_index = (i / 2) * SYMRATE / sampleRate;
+        size_t input_index = (size_t)round((double)i * ((double)SYMRATE / sampleRate));
 
         if (input_index < inputSize) {
-             int16_t inSample = *(samples + input_index);
-            
-             // Schreibe im Little-Endian-Format (low byte first)
-             *(out + i + 0) = (inSample & 0xFF);
-             *(out + i + 1) = ((inSample >> 8) & 0xFF);
+              // Schreibe das Sample direkt in den int16_t Puffer
+              *(out + i) = *(samples + input_index);
         } else {
-             // Null-Samples (Ende des Puffers)
-             *(out + i + 0) = 0;
-             *(out + i + 1) = 0;
+             *(out + i) = 0;
         }
     }
 

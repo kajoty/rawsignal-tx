@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include <math.h> // Hinzugefügt für M_PI
+#include <math.h> 
 
 // --- KONSTANTEN ---
 #define SAMPLE_RATE 22050 
@@ -15,7 +15,7 @@
 #endif
 
 /**
- * @brief Berechnet die Länge der PCM-Übertragung in Bytes.
+ * @brief Berechnet die Länge der PCM-Übertragung in SAMPLES.
  */
 size_t pcmTransmissionLength(
         uint32_t sampleRate,
@@ -30,7 +30,7 @@ void pcmEncodeTransmission(
         uint32_t baudRate,
         const uint32_t* transmission,
         size_t transmissionLength,
-        uint8_t* out);
+        int16_t* out); // KORREKT: int16_t*
 
 // NEUE HILFSFUNKTION FÜR SINUSWELLEN-GENERIERUNG
 /**
