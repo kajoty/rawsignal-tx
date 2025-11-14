@@ -1,4 +1,4 @@
-#include <stdio.h> 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -26,10 +26,11 @@ int16_t rs_generate_tone_sample(double frequency, size_t time_index, uint32_t sa
  * @brief Berechnet die Länge der PCM-Übertragung in SAMPLES.
  */
 size_t pcmTransmissionLength(
-        uint32_t sampleRate,
-        uint32_t baudRate,
-        size_t transmissionLength) {
+    uint32_t sampleRate,
+    uint32_t baudRate,
+    size_t transmissionLength) {
     // Länge in SAMPLES: transmissionLength (Wörter) * 32 (Bits/Wort) * sampleRate / baudRate
+    // Achtung: Kann bei unsauberen Raten Fehler durch Integer-Division erzeugen.
     return transmissionLength * 32 * sampleRate / baudRate;
 }
 
@@ -38,11 +39,11 @@ size_t pcmTransmissionLength(
  * * POCSAG Rechteckwellen-FSK-Simulation.
  */
 void pcmEncodeTransmission(
-        uint32_t sampleRate,
-        uint32_t baudRate,
-        const uint32_t* transmission,
-        size_t transmissionLength,
-        int16_t* out) { // KORREKT: int16_t*
+    uint32_t sampleRate,
+    uint32_t baudRate,
+    const uint32_t* transmission,
+    size_t transmissionLength,
+    int16_t* out) { 
 
     // Die Anzahl der Wiederholungen jedes Bits, die wir benötigen, um SYMRATE (38400 Hz) zu erreichen
     int repeatsPerBit = SYMRATE / baudRate;
@@ -95,8 +96,8 @@ void pcmEncodeTransmission(
         size_t input_index = (size_t)round((double)i * ((double)SYMRATE / sampleRate));
 
         if (input_index < inputSize) {
-              // Schreibe das Sample direkt in den int16_t Puffer
-              *(out + i) = *(samples + input_index);
+             // Schreibe das Sample direkt in den int16_t Puffer
+             *(out + i) = *(samples + input_index);
         } else {
              *(out + i) = 0;
         }

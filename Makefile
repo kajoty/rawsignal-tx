@@ -1,7 +1,7 @@
 # Compiler und Flags
 CC = gcc
 CFLAGS = -Wall -Wextra -std=c99 -O2 -Iinclude
-LDFLAGS = -lm # -lm ist für mathematische Funktionen (z.B. sin, cos in morse.c)
+LDFLAGS = -lm # -lm ist für mathematische Funktionen (z.B. sin, cos)
 
 # Verzeichnisse
 BIN_DIR = bin
@@ -12,23 +12,33 @@ MOD_SRC_DIR = src/encoders
 # Ausgabedatei
 TARGET = $(BIN_DIR)/rawsignal_tx
 
-# Haupt-Quellendateien
+# --- Quellendateien ---
+
+# Haupt-Quellendateien (ohne CRC)
 CORE_SRCS = $(SRC_DIR)/rawsignal_tx.c \
             $(SRC_DIR)/signal_generator.c
 
-# Modulator-Quellendateien (NEU: morse.c hinzugefügt)
+# CRC-Datei
+CRC_SRC = $(SRC_DIR)/crc.c
+
+# Modulator-Quellendateien
 MODULATOR_SRCS = $(MOD_SRC_DIR)/pocsag.c \
                  $(MOD_SRC_DIR)/tones.c \
-                 $(MOD_SRC_DIR)/morse.c
+                 $(MOD_SRC_DIR)/morse.c \
+                 $(MOD_SRC_DIR)/afsk1200.c
 
 # Alle Quellendateien
-SRCS = $(CORE_SRCS) $(MODULATOR_SRCS)
+SRCS = $(CORE_SRCS) $(CRC_SRC) $(MODULATOR_SRCS)
 
-# Objektdateien
+
+# --- Objektdateien ---
+
 CORE_OBJS = $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(CORE_SRCS))
+CRC_OBJ = $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(CRC_SRC))
 MODULATOR_OBJS = $(patsubst $(MOD_SRC_DIR)/%.c, $(OBJ_DIR)/encoders/%.o, $(MODULATOR_SRCS))
 
-OBJS = $(CORE_OBJS) $(MODULATOR_OBJS)
+# Alle Objektdateien
+OBJS = $(CORE_OBJS) $(CRC_OBJ) $(MODULATOR_OBJS)
 
 # --- Regeln ---
 
@@ -40,7 +50,7 @@ $(TARGET): $(OBJS)
 	@echo "Linking $(TARGET)..."
 	$(CC) $(OBJS) -o $@ $(LDFLAGS)
 
-# Regel für alle .c-Dateien in src/
+# Regel für alle .c-Dateien in src/ (CRC.c wird hier auch kompiliert)
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 	@echo "Compiling $<"
 	$(CC) $(CFLAGS) -c $< -o $@
