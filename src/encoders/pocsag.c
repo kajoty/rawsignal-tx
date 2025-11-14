@@ -132,6 +132,7 @@ static uint32_t encodeASCII(uint32_t initial_offset, const char* str, uint32_t* 
  * @brief Berechnet die Gesamtlänge der POCSAG-Übertragung in 32-Bit-Wörtern.
  */
 size_t pocsag_messageLength(uint32_t address, size_t numChars, FunctionCode functionCode) {
+    (void)functionCode;
     size_t numWords = 0;
 
     // 1. Präambel
@@ -148,7 +149,7 @@ size_t pocsag_messageLength(uint32_t address, size_t numChars, FunctionCode func
 
     // 5. Nachrichtenwörter
     size_t numMessageWords = (numChars * TEXT_BITS_PER_CHAR + (TEXT_BITS_PER_WORD - 1))
-                               / TEXT_BITS_PER_WORD;
+                                 / TEXT_BITS_PER_WORD;
     numWords += numMessageWords;
 
     // 6. Leerlaufwort, das das Ende der Nachricht darstellt

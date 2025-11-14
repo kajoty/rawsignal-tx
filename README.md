@@ -1,4 +1,3 @@
-
 # rawsignal-tx: Universal RF Signal Generator (POCSAG & DTMF & ...)
 
 ## 📡 Übersicht
@@ -22,6 +21,13 @@ DTMF, bekannt als **Tastenwahl-Signalisierung** (Touch-Tone), generiert Töne du
 
 * **Implementierung:** Reines Sinuswellen-Tonsignal.
 * **Unterstützte Zeichen:** 0-9, \*, \#, A, B, C, D.
+
+### 3. Morsen (CW - Continuous Wave)
+
+Generiert **Morsecode-Signale** als einfache Ton-An/Ton-Aus-Sequenzen. Die Geschwindigkeit wird in **Words Per Minute (WPM)** gesteuert.
+
+* **Implementierung:** Rechteckwelle (Tonfrequenz aktuell fix).
+* **Steuerung:** Geschwindigkeit über WPM.
 
 ---
 
@@ -81,7 +87,7 @@ Generiert ein POCSAG-Signal.
 
 ```bash
 # Nachricht an Adresse 1234567, 512 Baud
-./bin/rawsignal_tx POCSAG 512 1234567:3:HALLO TEST | multimon-ng -t raw -a POCSAG512 -
+./bin/rawsignal_tx POCSAG 512 "1234567:3:HALLO TEST" | multimon-ng -t raw -a POCSAG512 -
 ```
 
 ### 2\. DTMF-Nutzung
@@ -111,11 +117,30 @@ Generiert eine Sequenz von DTMF-Tönen.
 ./bin/rawsignal_tx DTMF 5551234 80 80 | aplay -r 22050 -f S16_LE
 ```
 
+### 3\. Morsen (CW)
+
+Generiert eine Morsecode-Nachricht mit einer bestimmten Geschwindigkeit.
+
+#### Syntax
+
+```bash
+./bin/rawsignal_tx MORSE_CW "<NACHRICHT>" <WPM>
+```
+
+  \* `<NACHRICHT>`: Die zu morsende Nachricht (Großbuchstaben und Zahlen).
+  \* `<WPM>`: Die Sendegeschwindigkeit in **Words Per Minute** (Wörter pro Minute).
+
+#### Beispiel: Generiere CW und dekodiere mit multimon-ng
+
+```bash
+./bin/rawsignal_tx MORSE_CW "HELLO WORLD" 20 | multimon-ng -a MORSE_CW -
+```
+
 -----
 
 ## 🧪 Entwicklungsstand
 
-Der Code wurde erfolgreich implementiert und die DTMF-Funktionalität mit `multimon-ng` verifiziert.
+Der Code wurde erfolgreich implementiert und die Funktionalität mit `multimon-ng` verifiziert.
 
 ### Nächste geplante Schritte
 
@@ -126,6 +151,3 @@ Implementierung weiterer Protokolle (z.B. FLEX).
 ## 🙏 Danksagungen und Credits
 
 Der POCSAG-Encoder basiert maßgeblich auf der ursprünglichen Implementierung von **[`faithanalog/pocsag-encoder`](https://github.com/faithanalog/pocsag-encoder)**, die eine wichtige Grundlage für die Protokollkodierung dieses Projekts bildete.
-
-```
-```
