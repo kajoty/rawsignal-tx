@@ -7,10 +7,15 @@
 
 #include "../include/signal_generator.h"
 #include "../include/encoders/pocsag.h"
-// TODO: #include "../include/encoders/tones.h"
+#include "../include/encoders/tones.h" // NEU: DTMF-Header inkludiert
 
 #define MAX_DELAY 10 // Sekunden
 #define MIN_DELAY 1  // Sekunden
+
+// DTMF-Standarddauern
+#define DTMF_TONE_MS 50
+#define DTMF_PAUSE_MS 50
+
 
 /**
  * @brief Gibt eine Fehlermeldung zur korrekten Nutzung des Programms aus.
@@ -18,10 +23,11 @@
 static void print_usage(const char* progName) {
     fprintf(stderr, "Nutzung: %s <MODULATOR> <PARAMETER>\n", progName);
     fprintf(stderr, "\nVerfügbare Modulatoren:\n");
-    fprintf(stderr, "  POCSAG [BAUD] [ADRESSE]:[FUNKTION]:[NACHRICHT]\n");
-    fprintf(stderr, "  Beispiel: %s POCSAG 512 1234567:3:HALLO\n", progName);
-    fprintf(stderr, "  (Standard-Funktion ist 3 (Alpha) wenn weggelassen, z.B. 1234567:HALLO)\n");
-    fprintf(stderr, "  DTMF [TONE_SEQUENZ] (NICHT IMPLEMENTIERT)\n");
+    fprintf(stderr, " POCSAG [BAUD] [ADRESSE]:[FUNKTION]:[NACHRICHT]\n");
+    fprintf(stderr, " Beispiel: %s POCSAG 512 1234567:3:HALLO\n", progName);
+    fprintf(stderr, "\n DTMF [SEQUENZ] [TON_DAUER_MS] [PAUSE_DAUER_MS]\n");
+    fprintf(stderr, " Beispiel: %s DTMF 123456# 50 50\n", progName);
+    fprintf(stderr, " (Standarddauern: Ton=%dms, Pause=%dms)\n", DTMF_TONE_MS, DTMF_PAUSE_MS);
 }
 
 /**
@@ -43,8 +49,8 @@ int main(int argc, char* argv[]) {
             print_usage(argv[0]);
             return 1;
         }
-
-        // --- Parameter-Parsing
+        
+        // --- POCSAG-Logik (Unverändert) ---
         uint32_t baudRate = (uint32_t) strtol(argv[2], NULL, 10);
         char* input_string = argv[3];
 
@@ -53,7 +59,6 @@ int main(int argc, char* argv[]) {
             return 1;
         }
 
-        // --- Input-Parsing
         uint32_t address = 0;
         FunctionCode functionCode = FUNC_ALPHA_TEXT;
         char* message = NULL;
@@ -96,8 +101,7 @@ int main(int argc, char* argv[]) {
             return 1;
         }
 
-
-        // --- Kodierung und Ausgabe
+        // Kodierung
         size_t requiredMessageLength = pocsag_messageLength(address, strlen(message), functionCode);
         uint32_t* transmission = (uint32_t*) malloc(sizeof(uint32_t) * requiredMessageLength);
         
@@ -108,6 +112,7 @@ int main(int argc, char* argv[]) {
 
         pocsag_encodeTransmission(address, message, transmission, functionCode);
 
+        // Signalerzeugung und Ausgabe
         size_t pcmLength = pcmTransmissionLength(SAMPLE_RATE, baudRate, requiredMessageLength);
         uint8_t* pcm = (uint8_t*) malloc(sizeof(uint8_t) * pcmLength);
 
@@ -118,25 +123,55 @@ int main(int argc, char* argv[]) {
         }
 
         pcmEncodeTransmission(SAMPLE_RATE, baudRate, transmission, requiredMessageLength, pcm);
-
-        // Schreibe die PCM-Samples (S16_LE) an stdout
         fwrite(pcm, sizeof(uint8_t), pcmLength, stdout);
 
         free(transmission);
         free(pcm);
 
     } else if (strcasecmp(modulator, "DTMF") == 0) {
-        fprintf(stderr, "\n--- DTMF-Modulator ist noch nicht implementiert ---\n");
-        return 1;
+        // --- NEUE DTMF-Logik ---
+        if (argc < 3) {
+            fprintf(stderr, "Fehler: DTMF benötigt mindestens die Ton-Sequenz.\n");
+            print_usage(argv[0]);
+            return 1;
+        }
+
+        const char* digits = argv[2];
+        int tone_duration = DTMF_TONE_MS; // Standard: 50ms
+        int pause_duration = DTMF_PAUSE_MS; // Standard: 50ms
+
+        // Optionale Argumente für Dauer
+        if (argc >= 4) {
+            tone_duration = (int) strtol(argv[3], NULL, 10);
+        }
+        if (argc >= 5) {
+            pause_duration = (int) strtol(argv[4], NULL, 10);
+        }
+
+        if (tone_duration <= 0 || pause_duration <= 0) {
+             fprintf(stderr, "Fehler: Ton- und Pausendauer müssen positiv sein.\n");
+             return 1;
+        }
+
+        fprintf(stderr, "Info: DTMF-Kodierung: '%s' (Ton: %dms, Pause: %dms)\n", 
+                digits, tone_duration, pause_duration);
+
+        // Der DTMF-Encoder schreibt die Samples direkt an stdout
+        if (rs_encode_dtmf(digits, tone_duration, pause_duration) != 0) {
+            return 1; // Fehler bei der Kodierung
+        }
+
     } else {
         fprintf(stderr, "Fehler: Unbekannter Modulator '%s'.\n", modulator);
         print_usage(argv[0]);
         return 1;
     }
 
-    // Füge zufällige Stille am Ende hinzu
+    // Füge zufällige Stille am Ende hinzu (für SDR-Tools oft nützlich)
     size_t silenceLength = rand() % (SAMPLE_RATE * (MAX_DELAY - MIN_DELAY)) + MIN_DELAY;
-    uint16_t* silence = (uint16_t*) malloc(sizeof(uint16_t) * silenceLength);
+    // Die Länge ist in Samples, wir allocieren 2 Bytes/Sample (uint16_t)
+    uint16_t* silence = (uint16_t*) malloc(sizeof(uint16_t) * silenceLength); 
+    
     if (silence != NULL) {
         bzero(silence, sizeof(uint16_t) * silenceLength);
         fwrite(silence, sizeof(uint16_t), silenceLength, stdout);

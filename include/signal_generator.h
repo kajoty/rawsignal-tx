@@ -3,13 +3,16 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <math.h> // Hinzugefügt für M_PI
 
-// FSK-Modulationskonstanten
-#define SAMPLE_RATE 22050
+// --- KONSTANTEN ---
+#define SAMPLE_RATE 22050 
 #define SYMRATE 38400
-// Maximale Amplitude für Signed 16-bit PCM.
-// Wir verwenden hier 32767/2, um die Clipping-Gefahr zu minimieren.
-#define MAX_PCM_VALUE 16383
+#define MAX_PCM_VALUE 32767 // Amplitude (Signed 16-bit)
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 /**
  * @brief Berechnet die Länge der PCM-Übertragung in Bytes.
@@ -28,5 +31,16 @@ void pcmEncodeTransmission(
         const uint32_t* transmission,
         size_t transmissionLength,
         uint8_t* out);
+
+// NEUE HILFSFUNKTION FÜR SINUSWELLEN-GENERIERUNG
+/**
+ * @brief Generiert ein 16-bit PCM Sample bei einer bestimmten Frequenz und Zeit.
+ * * @param frequency Die Frequenz des Tons (Hz).
+ * @param time_index Das aktuelle Sample-Index (0, 1, 2, ...).
+ * @param sample_rate Die Abtastrate.
+ * @return int16_t Das generierte PCM-Sample.
+ */
+int16_t rs_generate_tone_sample(double frequency, size_t time_index, uint32_t sample_rate);
+
 
 #endif // SIGNAL_GENERATOR_H

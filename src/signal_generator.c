@@ -8,6 +8,23 @@
 // Hinweis: Die Konstanten wie SYMRATE, SAMPLE_RATE und MAX_PCM_VALUE kommen aus signal_generator.h
 
 /**
+ * @brief Generiert ein 16-bit PCM Sample bei einer bestimmten Frequenz und Zeit.
+ * * @param frequency Die Frequenz des Tons (Hz).
+ * @param time_index Das aktuelle Sample-Index (0, 1, 2, ...).
+ * @param sample_rate Die Abtastrate.
+ * @return int16_t Das generierte PCM-Sample.
+ */
+int16_t rs_generate_tone_sample(double frequency, size_t time_index, uint32_t sample_rate) {
+    // 2 * PI * Frequenz * (Aktuelle Zeit)
+    // Zeit = time_index / sample_rate
+    double angle = 2.0 * M_PI * frequency * ((double)time_index / sample_rate);
+    
+    // Generiert ein Sinus-Sample und skaliert es auf den 16-Bit-Bereich
+    return (int16_t)(sin(angle) * MAX_PCM_VALUE);
+}
+
+
+/**
  * @brief Berechnet die Länge der PCM-Übertragung in Bytes.
  */
 size_t pcmTransmissionLength(
@@ -20,9 +37,7 @@ size_t pcmTransmissionLength(
 
 /**
  * @brief Kodiert die 32-Bit-Wörter in ein rohes PCM-Audiosignal (Signed 16-bit, Little Endian).
- * * Diese Funktion implementiert die Rechteckwellen-FSK-Simulation, indem sie Bits 
- * durch positive oder negative Amplituden bei einer hohen Zwischenabtastrate (SYMRATE) darstellt 
- * und anschließend auf die Ziel-Sample-Rate (SAMPLE_RATE) resampelt.
+ * * POCSAG Rechteckwellen-FSK-Simulation.
  */
 void pcmEncodeTransmission(
         uint32_t sampleRate,
@@ -58,8 +73,6 @@ void pcmEncodeTransmission(
             int16_t sample;
             
             // Rechteckwelle FSK-Simulation:
-            // Bit 0 -> Positive Amplitude (Low Frequenz)
-            // Bit 1 -> Negative Amplitude (High Frequenz)
             if (bit == 0) {
                 sample = MAX_PCM_VALUE; 
             } else {
@@ -79,8 +92,8 @@ void pcmEncodeTransmission(
         pcmTransmissionLength(sampleRate, baudRate, transmissionLength);
 
     for (size_t i = 0; i < outputSize; i += 2) {
-        // Index im 16-Bit-Array entspricht i / 2
-        // Runde auf den nächsten Index in den Eingabedaten.
+        
+        // Mapping vom Ziel-Sample-Index auf den Quell-Sample-Index
         size_t input_index = (i / 2) * SYMRATE / sampleRate;
 
         if (input_index < inputSize) {
