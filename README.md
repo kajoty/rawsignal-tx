@@ -1,35 +1,21 @@
-# rawsignal-tx: Universal RF Signal Generator (POCSAG & DTMF & ...)
+# rawsignal-tx: Universal RF Signal Generator
 
 ## 📡 Übersicht
 
-`rawsignal-tx` ist ein Kommandozeilen-Tool, das zur Generierung von rohen, digitalen Audiosignalen für verschiedene Funkprotokolle entwickelt wurde. Die Ausgabe erfolgt als **Signed 16-bit Little-Endian (S16_LE) PCM Audio** mit einer Abtastrate von **22050 Hz** und wird direkt an `stdout` ausgegeben.
+`rawsignal-tx` ist ein Kommandozeilen-Tool zur Generierung von rohen, digitalen Audiosignalen für verschiedene Funkprotokolle. Die Ausgabe erfolgt als **Signed 16-bit Little-Endian (S16_LE) PCM Audio** mit einer Abtastrate von **22050 Hz** und wird direkt an `stdout` ausgegeben.
 
 ---
 
 ## ✨ Unterstützte Modulatoren
 
-### 1. POCSAG Paging Protocol
-
-POCSAG (Post Office Code Standardisation Advisory Group) ist ein Standard-Protokoll für Funkrufempfänger. Der Encoder generiert POCSAG-konforme Bursts, die Adressen, Funktionscodes und alphanumerische Nachrichten enthalten.
-
-* **Implementierung:** **Robuste Rechteckwellen-FSK** (aktuell).
-* **Unterstützte Baudraten:** 512, 1200, 2400.
-
-### 2. DTMF (Dual-Tone Multi-Frequency)
-
-DTMF, bekannt als **Tastenwahl-Signalisierung** (Touch-Tone), generiert Töne durch die Überlagerung von zwei Sinuswellen.
-
-* **Implementierung:** Reines Sinuswellen-Tonsignal.
-* **Unterstützte Zeichen:** 0-9, \*, \#, A, B, C, D.
-
-### 3. Morsen (CW - Continuous Wave)
-
-Generiert **Morsecode-Signale** als einfache Ton-An/Ton-Aus-Sequenzen. Die Geschwindigkeit wird in **Words Per Minute (WPM)** gesteuert.
-
-* **Implementierung:** Rechteckwelle (Tonfrequenz aktuell fix).
-* **Steuerung:** Geschwindigkeit über WPM.
-
----
+| Modulator | Status | Dekodierung | Anwendung |
+|-----------|--------|------------|-----------|
+| **POCSAG** | ✅ Funktioniert | multimon-ng | Funkrufempfänger |
+| **DTMF** | ✅ Funktioniert | multimon-ng / aplay | Tastenwahl-Signalisierung |
+| **MORSE_CW** | ✅ Funktioniert | multimon-ng | Morsecode |
+| **UFSK1200** | ⚠️ Experimentell | multimon-ng (teilweise) | Einfache FSK-Modulation |
+| **FSK9600** | ⚠️ Experimentell | multimon-ng (nein) | Hochgeschwindigkeit FSK |
+| **AFSK1200** | ❌ Nicht funktional | multimon-ng (nein) | AX.25 APRS |
 
 ## 🛠️ Build-Anleitung
 
@@ -63,91 +49,128 @@ Zum Entfernen aller generierten Objektdateien und der ausführbaren Datei:
 make clean
 ```
 
------
-
 ## 🚀 Nutzung
 
 Das Programm benötigt immer mindestens einen Modulator und spezifische Parameter.
 
-### 1\. POCSAG-Nutzung
-
-Generiert ein POCSAG-Signal.
-
-#### Syntax
+### POCSAG
 
 ```bash
 ./bin/rawsignal_tx POCSAG <BAUD> <ADRESSE>:<FUNKTION>:<NACHRICHT>
 ```
 
-  \* `<BAUD>`: 512, 1200, oder 2400.
-  \* `<ADRESSE>`: Bis zu 21-Bit-Adresse.
-  \* `<FUNKTION>`: 0-3 (z.B. 3 für Alpha-Nachricht). Kann weggelassen werden (Standard ist 3).
-
-#### Beispiel: Generiere POCSAG und dekodiere mit multimon-ng
-
+**Beispiel:**
 ```bash
-# Nachricht an Adresse 1234567, 512 Baud
 ./bin/rawsignal_tx POCSAG 512 "1234567:3:HALLO TEST" | multimon-ng -t raw -a POCSAG512 -
 ```
 
-### 2\. DTMF-Nutzung
-
-Generiert eine Sequenz von DTMF-Tönen.
-
-#### Syntax
+### DTMF
 
 ```bash
-./bin/rawsignal_tx DTMF <SEQUENZ> <TON_DAUER_MS> <PAUSE_DAUER_MS>
+./bin/rawsignal_tx DTMF <SEQUENZ> [TON_MS] [PAUSE_MS]
 ```
 
-  \* `<SEQUENZ>`: Die zu sendende Zeichenkette (z.B. `123456*#A`).
-  \* `<TON_DAUER_MS>`: Dauer jedes Tons in Millisekunden (Standard: 50).
-  \* `<PAUSE_DAUER_MS>`: Dauer der Stille zwischen den Tönen in Millisekunden (Standard: 50).
-
-#### Beispiel: Generiere DTMF und dekodiere mit multimon-ng
-
+**Beispiele:**
 ```bash
-# Sequenz 123456*#A, 50ms Ton, 50ms Pause
+# Mit multimon-ng dekodieren
 ./bin/rawsignal_tx DTMF 123456*#A 50 50 | multimon-ng -t raw -a DTMF -
-```
 
-#### Beispiel: Akustische Ausgabe (setzt `aplay` voraus)
-
-```bash
+# Mit Lautsprechern abspielen
 ./bin/rawsignal_tx DTMF 5551234 80 80 | aplay -r 22050 -f S16_LE
 ```
 
-### 3\. Morsen (CW)
-
-Generiert eine Morsecode-Nachricht mit einer bestimmten Geschwindigkeit.
-
-#### Syntax
+### MORSE_CW
 
 ```bash
-./bin/rawsignal_tx MORSE_CW "<NACHRICHT>" <WPM>
+./bin/rawsignal_tx MORSE_CW "<NACHRICHT>" [WPM]
 ```
 
-  \* `<NACHRICHT>`: Die zu morsende Nachricht (Großbuchstaben und Zahlen).
-  \* `<WPM>`: Die Sendegeschwindigkeit in **Words Per Minute** (Wörter pro Minute).
-
-#### Beispiel: Generiere CW und dekodiere mit multimon-ng
-
+**Beispiel:**
 ```bash
 ./bin/rawsignal_tx MORSE_CW "HELLO WORLD" 20 | multimon-ng -a MORSE_CW -
 ```
+
+### UFSK1200 (experimentell)
+
+```bash
+./bin/rawsignal_tx UFSK1200 "<NACHRICHT>"
+```
+
+**Beispiel:**
+```bash
+./bin/rawsignal_tx UFSK1200 "Test" | multimon-ng -t raw -a UFSK1200 -
+```
+
+**Hinweis:** UFSK1200 zeigt begrenzte Dekodierung durch multimon-ng (teilweise funktional, wahrscheinlich Sample-Rate-Timing-Probleme).
+
+### FSK9600 (experimentell)### FSK9600 (experimentell)
+
+```bash
+./bin/rawsignal_tx FSK9600 "<NACHRICHT>"
+```
+
+**Beispiel:**
+```bash
+./bin/rawsignal_tx FSK9600 "Test" | multimon-ng -t raw -a FSK9600 -
+```
+
+**Hinweis:** FSK9600 generiert Audio, wird aber von multimon-ng nicht dekodiert.
 
 -----
 
 ## 🧪 Entwicklungsstand
 
-Der Code wurde erfolgreich implementiert und die Funktionalität mit `multimon-ng` verifiziert.
+| Feature | Status |
+|---------|--------|
+| POCSAG Encoder | ✅ Vollständig funktioniert |
+| DTMF Encoder | ✅ Vollständig funktioniert |
+| MORSE_CW Encoder | ✅ Vollständig funktioniert |
+| UFSK1200 Encoder | ⚠️ Teilweise funktional |
+| FSK9600 Encoder | ⚠️ Audio generiert, nicht dekodiert |
+| AFSK1200 Encoder | ❌ Nicht funktional (siehe Probleme) |
 
-### Nächste geplante Schritte
+### Bekannte Probleme
 
-Implementierung weiterer Protokolle (z.B. FLEX).
+**AFSK1200:** Generiert gültiges PCM-Audio, wird aber von multimon-ng nicht dekodiert. Mögliche Ursachen:
+- Frame-Struktur nicht AX.25-konform
+- NRZI-Encoding-Logik
+- Bit-Stuffing bei Flaggen
+
+**UFSK1200 & FSK9600:** Timing-Probleme bei 22050 Hz Abtastrate (nicht exakt teilbar durch Baudrate).
 
 -----
 
-## 🙏 Danksagungen und Credits
+## 📚 Projektstruktur
 
-Der POCSAG-Encoder basiert maßgeblich auf der ursprünglichen Implementierung von **[`faithanalog/pocsag-encoder`](https://github.com/faithanalog/pocsag-encoder)**, die eine wichtige Grundlage für die Protokollkodierung dieses Projekts bildete.
+```
+rawsignal-tx/
+├── Makefile                    # Build-System
+├── README.md                   # Dokumentation
+├── .github/
+│   └── copilot-instructions.md # AI Agent Anleitung
+├── include/
+│   ├── signal_generator.h      # PCM-Erzeugung
+│   ├── crc.h                   # CRC16-CCITT Utility
+│   └── encoders/
+│       ├── pocsag.h
+│       ├── tones.h
+│       ├── morse.h
+│       ├── afsk1200.h
+│       ├── ufsk1200.h
+│       └── fsk9600.h
+└── src/
+    ├── rawsignal_tx.c          # CLI & Hauptprogramm
+    ├── signal_generator.c      # PCM-Erzeugung
+    ├── crc.c                   # CRC16-CCITT
+    └── encoders/
+        ├── pocsag.c
+        ├── tones.c
+        ├── morse.c
+        ├── afsk1200.c
+        ├── ufsk1200.c
+        └── fsk9600.c
+```
+
+## 🙏 Danksagungen
+
+Der POCSAG-Encoder basiert auf der Implementierung von **[`faithanalog/pocsag-encoder`](https://github.com/faithanalog/pocsag-encoder)**.
