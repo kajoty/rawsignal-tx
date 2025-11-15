@@ -25,7 +25,9 @@ CRC_SRC = $(SRC_DIR)/crc.c
 MODULATOR_SRCS = $(MOD_SRC_DIR)/pocsag.c \
                  $(MOD_SRC_DIR)/tones.c \
                  $(MOD_SRC_DIR)/morse.c \
-                 $(MOD_SRC_DIR)/afsk1200.c
+                 $(MOD_SRC_DIR)/afsk1200.c \
+                 $(MOD_SRC_DIR)/fsk9600.c \
+                 $(MOD_SRC_DIR)/ufsk1200.c
 
 # Alle Quellendateien
 SRCS = $(CORE_SRCS) $(CRC_SRC) $(MODULATOR_SRCS)

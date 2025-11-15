@@ -9,7 +9,7 @@ Dieses Repository ist ein kleines C-Tool zur Erzeugung roher PCM-Audiosignale (S
 - `src/rawsignal_tx.c`: CLI, Auswahl der Modulatoren, Argument-Parsing und Steuerung des Workflows.
 - `src/signal_generator.c` + `include/signal_generator.h`: gemeinsame Hilfsfunktionen zur PCM-Erzeugung (z.B. `pcmTransmissionLength`, `pcmEncodeTransmission`, `rs_generate_tone_sample`).
 - `src/crc.c` + `include/crc.h`: CRC-Utilities (POCSAG-relevant).
-- `src/encoders/*.c` + `include/encoders/*.h`: Protokoll-spezifische Encoder (POCSAG, DTMF/tones, MORSE, AFSK1200). Suche nach `pocsag_`, `morse_`, `rs_encode_dtmf`, `rs_encode_afsk1200`-Symbolen.
+- `src/encoders/*.c` + `include/encoders/*.h`: Protokoll-spezifische Encoder (POCSAG, DTMF/tones, MORSE, AFSK1200, UFSK1200, FSK9600). Suche nach `pocsag_`, `morse_`, `rs_encode_dtmf`, `rs_encode_afsk1200`, `rs_encode_ufsk1200`, `rs_encode_fsk9600`-Symbolen.
 
 Design-Intent:
 - Encoder erzeugen entweder ein Array von 32-bit-Wörtern (z.B. POCSAG) oder schreiben direkt PCM-Samples an `stdout` (z.B. DTMF-Encoder). Achte auf die Funktion, die verwendet wird: `pocsag_encodeTransmission` → Konvertierung → `pcmEncodeTransmission`, vs. `rs_encode_dtmf` schreibt direkt.
@@ -22,6 +22,7 @@ Design-Intent:
   - POCSAG (512 Baud): `./bin/rawsignal_tx POCSAG 512 "1234567:3:HALLO TEST" | multimon-ng -t raw -a POCSAG512 -`
   - DTMF to audio: `./bin/rawsignal_tx DTMF 123456*#A 50 50 | aplay -r 22050 -f S16_LE`
   - MORSE_CW: `./bin/rawsignal_tx MORSE_CW "HELLO" 20 | multimon-ng -a MORSE_CW -`
+  - UFSK1200: `./bin/rawsignal_tx UFSK1200 "Test" | multimon-ng -t raw -a UFSK1200 -` (experimentell)
 
 Tipps zum Debugging:
 - Da Ausgaben an `stdout` geschrieben werden, redirect auf Dateien (`> out.raw`) oder an `aplay`/`multimon-ng`.
@@ -35,6 +36,7 @@ Tipps zum Debugging:
 - Ausgabeformat: Immer `S16_LE`, `SAMPLE_RATE` ist 22050 (`include/signal_generator.h`).
 - Keine externen Laufzeit-Abhängigkeiten hinzugefügt ohne Rücksprache — das Projekt ist auf kleine, direkte C-Implementationen ausgelegt.
 - **Known Issue – AFSK1200:** Der AFSK1200-Encoder generiert gültige PCM-Audio, wird aber von `multimon-ng` nicht dekodiert. Mögliche Ursachen: Frame-Struktur, NRZI-Zustand, oder Bit-Stuffing-Logik. POCSAG, MORSE_CW und DTMF funktionieren korrekt.
+- **Experimentell – FSK9600 / UFSK1200:** Diese Encoder generieren Audio, aber die Dekodierung ist inkonsistent (wahrscheinlich Sample-Rate oder Timing-Probleme bei 22050 Hz).
 
 ## Beispiele aus dem Code (so suchen/lesen)
 - CLI-Logik in `src/rawsignal_tx.c` zeigt erlaubte Modulatoren und Argument-Formate.

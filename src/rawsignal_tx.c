@@ -10,7 +10,9 @@
 #include "../include/encoders/pocsag.h"
 #include "../include/encoders/tones.h" 
 #include "../include/encoders/morse.h" 
-#include "../include/encoders/afsk1200.h" // NEU: AFSK1200 Header
+#include "../include/encoders/afsk1200.h"
+#include "../include/encoders/fsk9600.h"
+#include "../include/encoders/ufsk1200.h"
 
 // Standardwerte
 #define MAX_DELAY 10 // Sekunden
@@ -36,10 +38,15 @@ static void print_usage(const char* progName) {
   fprintf(stderr, " Beispiel: %s MORSE_CW CQDX 20\n", progName);
   fprintf(stderr, " (Standard WPM: %d)\n", MORSE_WPM_DEFAULT);
   
-  // NEU: AFSK1200 Nutzung
   fprintf(stderr, "\n AFSK1200 [TX_CALL] [DEST_CALL] [NACHRICHT]\n");
   fprintf(stderr, " Beispiel: %s AFSK1200 DL1ABC APRS 'Hallo Welt'\n", progName);
   fprintf(stderr, " (Standard: Sender=%s, Empfänger=%s)\n", AFSK_DEFAULT_TX_CALL, AFSK_DEFAULT_DEST_CALL);
+  
+  fprintf(stderr, "\n FSK9600 [NACHRICHT]\n");
+  fprintf(stderr, " Beispiel: %s FSK9600 'Hallo'\n", progName);
+  
+  fprintf(stderr, "\n UFSK1200 [NACHRICHT]\n");
+  fprintf(stderr, " Beispiel: %s UFSK1200 'Hallo'\n", progName);
 }
 
 
@@ -266,6 +273,26 @@ int main(int argc, char* argv[]) {
     
     // Aufruf der AFSK1200 Hauptfunktion
     result = rs_encode_afsk1200(tx_call, dest_call, message);
+    
+  } else if (strcasecmp(modulator, "FSK9600") == 0) {
+    if (argc < 3) {
+      fprintf(stderr, "Fehler: FSK9600 benötigt eine Nachricht.\n");
+      print_usage(argv[0]);
+      return 1;
+    }
+    
+    const char* message = argv[2];
+    result = rs_encode_fsk9600(message);
+    
+  } else if (strcasecmp(modulator, "UFSK1200") == 0) {
+    if (argc < 3) {
+      fprintf(stderr, "Fehler: UFSK1200 benötigt eine Nachricht.\n");
+      print_usage(argv[0]);
+      return 1;
+    }
+    
+    const char* message = argv[2];
+    result = rs_encode_ufsk1200(message);
     
   } else {
     fprintf(stderr, "Fehler: Unbekannter Modulator '%s'.\n", modulator);
